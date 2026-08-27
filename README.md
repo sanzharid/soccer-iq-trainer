@@ -31,4 +31,6 @@ python test/smoketest.py   # needs playwright + chromium in %LOCALAPPDATA%\ms-pl
 
 ## Deploy
 
-GitHub Pages via Actions workflow on push to `main` (`.github/workflows/pages.yml`).
+GitHub Pages (legacy branch-source: `main`, root) — redeploys automatically on
+every push to `main`. Live at https://sanzharid.github.io/soccer-iq-trainer/
+Note: Actions-based deploy is not possible (account locked for billing).
