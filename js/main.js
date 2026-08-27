@@ -85,7 +85,10 @@ function showResult(summary) {
 // Headless test hooks (used by test/smoketest.py)
 window.__test = {
   screen: () => currentScreen,
-  setProfile: (name) => { store.setProfile(name); showHome(); },
+  setProfile: (name) => {
+    name = (name ?? '').trim();
+    if (name) { store.setProfile(name); showHome(); }
+  },
   startDrill: () => showDrill(),
   scenario: () => drillHandle?.scenario ?? null,
   answerCorrect: () => drillHandle?.answerCorrect(),

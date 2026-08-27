@@ -31,11 +31,14 @@ try:
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as p:
-        cache = os.path.expandvars(r"%LOCALAPPDATA%\ms-playwright")
-        exe = sorted(glob.glob(os.path.join(
-            cache, "chromium_headless_shell-*", "chrome-headless-shell-win64",
-            "chrome-headless-shell.exe")))[-1]
-        browser = p.chromium.launch(executable_path=exe)
+        if sys.platform == "win32":
+            cache = os.path.expandvars(r"%LOCALAPPDATA%\ms-playwright")
+            exe = sorted(glob.glob(os.path.join(
+                cache, "chromium_headless_shell-*", "chrome-headless-shell-win64",
+                "chrome-headless-shell.exe")))[-1]
+            browser = p.chromium.launch(executable_path=exe)
+        else:
+            browser = p.chromium.launch()  # playwright's installed chromium
         page = browser.new_page(viewport={"width": 1024, "height": 768})
         page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
         page.on("pageerror", lambda e: errors.append(str(e)))
