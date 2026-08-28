@@ -27,6 +27,7 @@ def check(cond, msg):
 
 # --- local static server (ES modules don't work over file://) ---
 Handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(root))
+socketserver.TCPServer.allow_reuse_address = True  # back-to-back runs: avoid TIME_WAIT collisions
 httpd = socketserver.TCPServer(("127.0.0.1", PORT), Handler)
 threading.Thread(target=httpd.serve_forever, daemon=True).start()
 
