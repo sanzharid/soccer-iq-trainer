@@ -108,6 +108,27 @@ try:
             check(page.evaluate("window.__test.screen()") == "result", f"{drill}: result after 3 rounds")
             page.evaluate("window.__test.setProfile('Test')")  # back home
 
+        # --- scanning invariant over multiple fresh scenarios ---
+        import math
+        def dist2(a, b):
+            return math.hypot(a["x"] - b["x"], a["y"] - b["y"])
+        bad = 0
+        for _ in range(10):
+            page.evaluate("window.__test.startDrill('scanning', 1)")
+            page.wait_for_timeout(300)
+            sc = page.evaluate("window.__test.scenario()")
+            reds = [p for p in sc["players"] if p["team"] == "red"]
+            blues = [p for p in sc["players"] if p["team"] == "blue"]
+            free = sc["players"][sc["freeIndex"]]
+            marked = all(min(dist2(r, b) for b in blues) < 0.13 for r in reds if r is not free)
+            free_clear = min(dist2(free, b) for b in blues) > 0.20
+            if not (marked and free_clear):
+                bad += 1
+            page.evaluate("window.__test.quit()")   # quit records no session
+            page.wait_for_timeout(200)
+        check(bad == 0, f"scanning invariant holds over 10 scenarios (bad: {bad})")
+        page.evaluate("window.__test.setProfile('Test')")  # back home
+
         # --- quit flows ---
         # UI path: ✕ button -> confirm overlay -> "Verder spelen" resumes the round
         page.evaluate("window.__test.startDrill('decision', 5)")

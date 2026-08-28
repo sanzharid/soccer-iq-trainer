@@ -22,18 +22,34 @@ function makeScene(params) {
     players.push(p);
   }
   const freeIndex = Math.floor(Math.random() * players.length);
+  const free = players[freeIndex];
   const defenders = [];
   players.forEach((p, i) => {
     if (i === freeIndex) return;                       // the free one stays unmarked
-    const a = rand(0, Math.PI * 2), d = rand(0.07, 0.11);  // tight marker
-    defenders.push({
-      x: clamp(p.x + Math.cos(a) * d, 0.06, 0.94),
-      y: clamp(p.y + Math.sin(a) * d, 0.08, 0.92),
-      team: TEAM_BLUE, number: null,
-    });
+    // tight marker, but never near the free player
+    let m = null;
+    for (let t = 0; t < 20; t++) {
+      const a = rand(0, Math.PI * 2), d = rand(0.07, 0.11);
+      const cand = {
+        x: clamp(p.x + Math.cos(a) * d, 0.06, 0.94),
+        y: clamp(p.y + Math.sin(a) * d, 0.08, 0.92),
+        team: TEAM_BLUE, number: null,
+      };
+      if (dist(cand, free) > 0.22) { m = cand; break; }
+    }
+    if (!m) {
+      // deterministic fallback: directly away from the free player
+      const ux = p.x - free.x, uy = p.y - free.y;
+      const len = Math.hypot(ux, uy) || 1;
+      m = {
+        x: clamp(p.x + (ux / len) * 0.09, 0.06, 0.94),
+        y: clamp(p.y + (uy / len) * 0.09, 0.08, 0.92),
+        team: TEAM_BLUE, number: null,
+      };
+    }
+    defenders.push(m);
   });
   // extra roaming defenders, never near the free player
-  const free = players[freeIndex];
   let extra = params.defenders - defenders.length, guard = 0;
   while (extra > 0 && ++guard < 200) {
     const d = { x: rand(0.15, 0.85), y: rand(0.15, 0.85), team: TEAM_BLUE, number: null };
