@@ -112,6 +112,8 @@ try:
         import math
         def dist2(a, b):
             return math.hypot(a["x"] - b["x"], a["y"] - b["y"])
+        def distC(a, b):  # aspect-corrected, same metric as tap hit-testing
+            return math.hypot(a["x"] - b["x"], (a["y"] - b["y"]) * 0.62)
         bad = 0
         for _ in range(10):
             page.evaluate("window.__test.startDrill('scanning', 1)")
@@ -122,7 +124,8 @@ try:
             free = sc["players"][sc["freeIndex"]]
             marked = all(min(dist2(r, b) for b in blues) < 0.13 for r in reds if r is not free)
             free_clear = min(dist2(free, b) for b in blues) > 0.20
-            if not (marked and free_clear):
+            free_clear_corr = min(distC(free, b) for b in blues) > 0.20
+            if not (marked and free_clear and free_clear_corr):
                 bad += 1
             page.evaluate("window.__test.quit()")   # quit records no session
             page.wait_for_timeout(200)

@@ -6,12 +6,15 @@ import { scanningParams } from '../engine/difficulty.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const ASPECT = 0.62; // pitch canvas h/w ratio (see pitch.js resize)
+// Aspect-corrected distance — the same metric tap hit-testing uses (normDist).
+const distC = (a, b) => Math.hypot(a.x - b.x, (a.y - b.y) * ASPECT);
 
 // Every red except one gets a tight marker (visible adjacency); the free
 // player has no defender nearby. Makes the correct answer unambiguous.
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-function makeScene(params) {
+function buildScene(params) {
   const players = [];
   for (let i = 0; i < params.players; i++) {
     let p, ok, guard = 0;
@@ -56,6 +59,20 @@ function makeScene(params) {
     if (dist(d, free) > 0.25) { defenders.push(d); extra--; }
   }
   return { players: [...players, ...defenders], freeIndex };
+}
+
+// Retry whole scenes until every blue is clear of the free player in the
+// aspect-corrected metric that tap scoring uses (normDist, y x 0.62).
+function makeScene(params) {
+  let scene = buildScene(params);
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const free = scene.players[scene.freeIndex];
+    const clear = scene.players.every(
+      p => p.team !== TEAM_BLUE || distC(p, free) > 0.20);
+    if (clear) return scene;
+    scene = buildScene(params);
+  }
+  return scene; // fail-open; marker re-roll keeps the worst case benign
 }
 
 export const scanningSpec = {

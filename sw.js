@@ -1,6 +1,6 @@
 // Cache-first service worker for offline play. Bump CACHE on every release
 // that changes any listed asset.
-const CACHE = 'voetbal-iq-v5';
+const CACHE = 'voetbal-iq-v6';
 const ASSETS = [
   './',
   'index.html',
