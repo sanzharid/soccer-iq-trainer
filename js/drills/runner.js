@@ -33,10 +33,18 @@ export function runDrill(app, spec, onDone, options = {}) {
       <span>${spec.title} · ${T.level(level)}</span>
       <span data-round></span>
       <span data-points>${T.points(0)}</span>
+      <button data-quit class="quit-btn" title="${T.stop}">✕</button>
     </div>
     <div class="timerbar"><div data-timer style="width:100%"></div></div>
     <div class="pitch-wrap"><canvas></canvas></div>
     <div class="feedback" data-feedback>${spec.intro}</div>
+    <div class="quit-overlay" data-overlay hidden>
+      <div class="card">
+        <h2 style="color:var(--ink)">${T.confirmQuit}</h2>
+        <button data-yes>${T.yesQuit}</button>
+        <button data-no class="secondary">${T.noQuit}</button>
+      </div>
+    </div>
   `;
   app.replaceChildren(screen);
 
@@ -46,12 +54,15 @@ export function runDrill(app, spec, onDone, options = {}) {
   const pointsEl = screen.querySelector('[data-points]');
   const timerEl = screen.querySelector('[data-timer]');
   const feedbackEl = screen.querySelector('[data-feedback]');
+  const overlay = screen.querySelector('[data-overlay]');
 
   const state = {
     round: 0, points: 0, correct: 0,
     results: [],
     ctx: null,
     accepting: false,
+    paused: false,
+    quit: false,
     roundStart: 0,
     timerLimit: 0,
     timerId: null,
@@ -63,7 +74,7 @@ export function runDrill(app, spec, onDone, options = {}) {
   }
 
   function submit(result) {
-    if (!state.accepting) return;
+    if (!state.accepting || state.paused || state.quit) return;
     state.accepting = false;
     clearInterval(state.timerId);
     if (state.ctx) state.ctx.answered = true;
@@ -85,6 +96,7 @@ export function runDrill(app, spec, onDone, options = {}) {
     if (spec.reveal && state.ctx) spec.reveal(state.ctx, api);
 
     setTimeout(() => {
+      if (state.quit) return;
       if (state.round >= rounds) finish();
       else startRound();
     }, 1400);
@@ -133,12 +145,50 @@ export function runDrill(app, spec, onDone, options = {}) {
   const api = {
     pitch, params, level,
     setFeedback, startTimer, submit,
-    roundId: () => state.round,
+    roundId: () => (state.quit ? -1 : state.round),
   };
+
+  // --- quit / pause wiring ---
+  let pausedRemaining = 0;
+
+  function armQuit() {
+    if (state.quit || state.paused) return;
+    state.paused = true;
+    if (state.timerLimit) {
+      pausedRemaining = Math.max(0, state.timerLimit - (performance.now() - state.roundStart));
+      clearInterval(state.timerId);
+    } else {
+      pausedRemaining = 0;
+    }
+    overlay.hidden = false;
+  }
+
+  function resume() {
+    if (state.quit) return;
+    state.paused = false;
+    overlay.hidden = true;
+    if (pausedRemaining > 0 && state.ctx && state.ctx.accepting !== false) {
+      startTimer(pausedRemaining);
+    }
+    pausedRemaining = 0;
+  }
+
+  function doQuit() {
+    if (state.quit) return;
+    state.quit = true;                 // roundId() -> -1 kills pending phase timers
+    clearInterval(state.timerId);
+    pitch.onTap = null;
+    overlay.hidden = true;
+    if (options.onQuit) options.onQuit();
+  }
+
+  screen.querySelector('[data-quit]').addEventListener('click', armQuit);
+  screen.querySelector('[data-no]').addEventListener('click', resume);
+  screen.querySelector('[data-yes]').addEventListener('click', doQuit);
 
   pitch.resize();
   pitch.onTap = (idx, x, y) => {
-    if (!state.accepting || !state.ctx) return;
+    if (!state.accepting || state.paused || state.quit || !state.ctx) return;
     if (state.ctx.accepting === false) return;
     const r = spec.onTap(state.ctx, api, idx, x, y);
     if (r) submit(r);
@@ -149,12 +199,13 @@ export function runDrill(app, spec, onDone, options = {}) {
     get id() { return spec.id; },
     get state() { return state; },
     get ctx() { return state.ctx; },
+    quit: doQuit,
     answerCorrect: () => {
-      if (!state.ctx || state.ctx.accepting === false) return; // same gate as real taps
+      if (!state.ctx || state.ctx.accepting === false || state.paused) return; // same gate as real taps
       submit({ correct: true });
     },
     answerWrong: () => {
-      if (!state.ctx || state.ctx.accepting === false) return;
+      if (!state.ctx || state.ctx.accepting === false || state.paused) return;
       submit({ correct: false });
     },
   };

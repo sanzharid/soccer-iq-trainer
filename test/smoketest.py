@@ -98,6 +98,41 @@ try:
             check(page.evaluate("window.__test.screen()") == "result", f"{drill}: result after 3 rounds")
             page.evaluate("window.__test.setProfile('Test')")  # back home
 
+        # --- quit flows ---
+        # UI path: ✕ button -> confirm overlay -> "Verder spelen" resumes the round
+        page.evaluate("window.__test.startDrill('decision', 5)")
+        page.wait_for_function("window.__test.drillState() && window.__test.drillState().accepting", timeout=10000)
+        sessions_before = page.evaluate("window.__test.store()")["sessions"].__len__()
+        page.click("[data-quit]")
+        page.wait_for_timeout(200)
+        check(page.evaluate("!document.querySelector('[data-overlay]').hidden"), "quit: X button shows confirm overlay")
+        page.screenshot(path=str(shots / "5_quit_confirm.png"))
+        page.click("[data-no]")
+        page.wait_for_timeout(200)
+        check(page.evaluate("document.querySelector('[data-overlay]').hidden"), "quit: 'Verder spelen' hides overlay")
+        st = page.evaluate("window.__test.drillState()")
+        check(st and st["round"] == 1 and page.evaluate("window.__test.screen()") == "drill",
+              "quit: drill still on round 1 after resume")
+        # hook path: quit mid-drill -> home, no session recorded
+        page.evaluate("window.__test.quit()")
+        page.wait_for_timeout(300)
+        check(page.evaluate("window.__test.screen()") == "home", "quit mid-drill returns home")
+        check(page.evaluate("window.__test.store()")["sessions"].__len__() == sessions_before,
+              "quit mid-drill records no session")
+        # quit mid-session aborts the whole session
+        page.evaluate("window.__test.startSession()")
+        page.wait_for_function("window.__test.drillState() && window.__test.drillState().accepting", timeout=10000)
+        page.evaluate("window.__test.answerCorrect()")
+        page.wait_for_function("window.__test.drillState() && window.__test.drillState().round === 2", timeout=8000)
+        page.evaluate("window.__test.quit()")
+        page.wait_for_timeout(300)
+        check(page.evaluate("window.__test.screen()") == "home", "quit mid-session returns home")
+        check(page.evaluate("window.__test.store()")["sessions"].__len__() == sessions_before,
+              "quit mid-session records no session")
+        # after quit, pending drill timers must be dead: wait past a round boundary
+        page.wait_for_timeout(2500)
+        check(page.evaluate("window.__test.screen()") == "home", "no zombie drill activity after quit")
+
         # --- full session: 4 drills x 6 rounds (round counter resets per drill) ---
         page.evaluate("window.__test.startSession()")
         page.wait_for_timeout(400)

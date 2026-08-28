@@ -77,13 +77,13 @@ function startSession() {
   lastAction = startSession;
   currentScreen = 'drill';
   drillHandle = null;
-  runSession(app, showResult, (h) => { drillHandle = h; });
+  runSession(app, showResult, (h) => { drillHandle = h; }, showHome);
 }
 
 function startDrill(id) {
   lastAction = () => startDrill(id);
   currentScreen = 'drill';
-  drillHandle = runDrill(app, DRILLS_BY_ID[id], showResult);
+  drillHandle = runDrill(app, DRILLS_BY_ID[id], showResult, { onQuit: showHome });
 }
 
 function showResult(summary) {
@@ -119,9 +119,10 @@ window.__test = {
     lastAction = () => startDrill(id);
     currentScreen = 'drill';
     drillHandle = runDrill(app, DRILLS_BY_ID[id], showResult,
-      rounds ? { rounds } : undefined);
+      { rounds, onQuit: showHome });
   },
   startSession: () => startSession(),
+  quit: () => drillHandle?.quit(),
   scenario: () => drillHandle?.ctx ?? null,
   answerCorrect: () => drillHandle?.answerCorrect(),
   answerWrong: () => drillHandle?.answerWrong(),

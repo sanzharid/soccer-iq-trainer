@@ -14,14 +14,16 @@ export const DRILLS_BY_ID = Object.fromEntries(DRILLS.map(d => [d.id, d]));
 
 const SESSION_ROUNDS = 6;
 
-export function runSession(app, onDone, onDrillStart) {
+export function runSession(app, onDone, onDrillStart, onQuit) {
   sound.whistle();
   const queue = [...DRILLS];
   const totals = { points: 0, correct: 0, rounds: 0 };
+  let quit = false;
 
   function next() {
     const spec = queue.shift();
-    if (!spec) {
+    if (!spec || quit) {
+      if (quit) { if (onQuit) onQuit(); return; }
       store.recordSession(totals.points, totals.rounds, totals.correct);
       onDone({
         session: true,
@@ -33,11 +35,16 @@ export function runSession(app, onDone, onDrillStart) {
       return;
     }
     const handle = runDrill(app, spec, (summary) => {
+      if (quit) return;
       totals.points += summary.points;
       totals.correct += summary.correct;
       totals.rounds += summary.rounds;
       next();
-    }, { rounds: SESSION_ROUNDS, recordSession: false });
+    }, {
+      rounds: SESSION_ROUNDS,
+      recordSession: false,
+      onQuit: () => { quit = true; if (onQuit) onQuit(); },
+    });
     if (onDrillStart) onDrillStart(handle);
   }
 
