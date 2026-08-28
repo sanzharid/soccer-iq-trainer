@@ -185,3 +185,37 @@ canvas { display: block; width: 100%; }
   padding: 16px;
 }
 .quit-overlay[hidden] { display: none; }
+
+.info-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  padding: 16px;
+}
+.info-overlay[hidden] { display: none; }
+
+.info-card {
+  text-align: left;
+  align-items: flex-start;
+  max-width: 560px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.info-card h3 { color: var(--green-dark); margin-top: 4px; }
+.info-card p { line-height: 1.45; }
+.info-card button { align-self: center; }
+
+.info-btn {
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+  opacity: .65;
+  font-size: 15px;
+  font-weight: normal;
+  padding: 6px 10px;
+  text-decoration: underline;
+}

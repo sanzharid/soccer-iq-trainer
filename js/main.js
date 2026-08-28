@@ -16,6 +16,30 @@ function el(html) {
   return d.firstElementChild;
 }
 
+// Parent info overlay (uitleg + install instructies), available on name/home screens.
+const infoOverlay = el(`
+  <div class="info-overlay" data-info-overlay hidden>
+    <div class="card info-card">
+      <h2 style="color:var(--ink)">${T.infoTitle}</h2>
+      <h3>${T.infoWhatTitle}</h3>
+      <p>${T.infoWhat}</p>
+      <h3>${T.infoInstallTitle}</h3>
+      <p>${T.infoIos}</p>
+      <p>${T.infoAndroid}</p>
+      <p>${T.infoLaptop}</p>
+      <p style="opacity:.7">${T.infoNote}</p>
+      <button data-info-close>${T.close}</button>
+    </div>
+  </div>`);
+document.body.appendChild(infoOverlay);
+infoOverlay.querySelector('[data-info-close]').addEventListener('click', () => { infoOverlay.hidden = true; });
+infoOverlay.addEventListener('click', (e) => { if (e.target === infoOverlay) infoOverlay.hidden = true; });
+const INFO_BTN = `<button data-info class="info-btn">${T.infoBtn}</button>`;
+function wireInfo(s) {
+  s.querySelectorAll('[data-info]').forEach(b =>
+    b.addEventListener('click', () => { infoOverlay.hidden = false; }));
+}
+
 function showNameScreen() {
   currentScreen = 'name';
   const s = el(`
@@ -25,8 +49,10 @@ function showNameScreen() {
         <h2 style="color:var(--ink)">${T.askName}</h2>
         <input type="text" maxlength="20" placeholder="${T.namePlaceholder}" autocomplete="off">
         <button>${T.letsGo}</button>
+        ${INFO_BTN}
       </div>
     </div>`);
+  wireInfo(s);
   const input = s.querySelector('input');
   const go = () => {
     const name = input.value.trim();
@@ -59,8 +85,10 @@ function showHome() {
         </div>
         <div class="levels">${badges}</div>
         <button data-sound class="sound-toggle">${store.soundOn ? '🔊' : '🔇'}</button>
+        ${INFO_BTN}
       </div>
     </div>`);
+  wireInfo(s);
   s.querySelector('[data-start]').addEventListener('click', startSession);
   s.querySelectorAll('[data-drill]').forEach(b =>
     b.addEventListener('click', () => startDrill(b.dataset.drill)));

@@ -54,6 +54,20 @@ try:
         check(page.evaluate("window.__test.screen()") == "name", "first run shows name screen")
         page.screenshot(path=str(shots / "1_name.png"))
 
+        # parent info overlay
+        page.click("[data-info]")
+        page.wait_for_timeout(150)
+        info_txt = page.evaluate("document.querySelector('[data-info-overlay] .info-card').innerText")
+        check(not page.evaluate("document.querySelector('[data-info-overlay]').hidden")
+              and "Zet op beginscherm" in info_txt
+              and "App installeren" in info_txt
+              and "Ctrl+D" in info_txt,
+              "info overlay opens with iOS/Android/laptop instructions")
+        page.screenshot(path=str(shots / "0_info.png"))
+        page.click("[data-info-close]")
+        page.wait_for_timeout(150)
+        check(page.evaluate("document.querySelector('[data-info-overlay]').hidden"), "info overlay closes")
+
         # PWA basics
         manifest_ok = page.evaluate(
             "fetch('manifest.webmanifest').then(r => r.ok && r.json()).then(m => m.name === 'Voetbal IQ')")
