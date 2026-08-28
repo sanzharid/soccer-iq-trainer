@@ -141,3 +141,19 @@ canvas { display: block; width: 100%; }
 .feedback.bad { color: #ffab91; }
 
 .stars { font-size: 48px; letter-spacing: 8px; }
+
+.drill-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+}
+.drill-picker button { font-size: 16px; padding: 12px 8px; }
+
+.levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.levels .badge { font-size: 13px; padding: 5px 12px; }

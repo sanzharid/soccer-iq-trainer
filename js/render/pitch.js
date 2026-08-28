@@ -85,6 +85,11 @@ export class Pitch {
     });
   }
 
+  // Aspect-corrected distance between two normalized points.
+  normDist(x1, y1, x2, y2) {
+    return Math.hypot(x1 - x2, (y1 - y2) * (this.h / this.w));
+  }
+
   // Returns scene player index hit by a tap, or -1.
   _tap(e) {
     if (!this.onTap || !this.scene) return;
@@ -94,7 +99,7 @@ export class Pitch {
     const r = this.playerRadius * 1.8; // generous touch target
     let best = -1, bestD = Infinity;
     this.scene.players.forEach((p, i) => {
-      const d = Math.hypot(p.x - x, (p.y - y) * (this.h / this.w));
+      const d = this.normDist(p.x, p.y, x, y);
       if (d < r && d < bestD) { best = i; bestD = d; }
     });
     this.onTap(best, x, y);

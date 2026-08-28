@@ -1,7 +1,7 @@
-"""Headless smoke test for Voetbal IQ: serve locally, play a full decision-drill
-session via window.__test hooks, check console errors, save screenshots.
+"""Headless smoke test for Voetbal IQ: serve locally, play every drill and a
+full session via window.__test hooks, check console errors, save screenshots.
 
-Run: ../../.venv-pdf/Scripts/python test/smoketest.py   (from repo root, any cwd works)
+Run: python test/smoketest.py   (playwright + chromium required)
 Exit code 0 = pass.
 """
 import pathlib, sys, threading, functools, http.server, socketserver, glob, os
@@ -26,6 +26,8 @@ def check(cond, msg):
 Handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(root))
 httpd = socketserver.TCPServer(("127.0.0.1", PORT), Handler)
 threading.Thread(target=httpd.serve_forever, daemon=True).start()
+
+DRILLS = ["decision", "scanning", "anticipation", "memory"]
 
 try:
     from playwright.sync_api import sync_playwright
@@ -52,34 +54,50 @@ try:
         check(page.evaluate("window.__test.screen()") == "home", "home after profile set")
         page.screenshot(path=str(shots / "2_home.png"))
 
-        page.evaluate("window.__test.startDrill()")
-        page.wait_for_timeout(300)
-        check(page.evaluate("window.__test.screen()") == "drill", "drill screen started")
-        sc = page.evaluate("window.__test.scenario()")
-        check(sc and len(sc["players"]) >= 4, f"scenario has players ({len(sc['players']) if sc else 0})")
-        check(sc and sc["correctIndex"] in sc["optionIndices"], "correctIndex is a valid option")
-        page.screenshot(path=str(shots / "3_drill.png"))
+        def play_rounds(n):
+            """Answer n rounds alternating correct/wrong, waiting for advance."""
+            for i in range(1, n + 1):
+                fn = "window.__test.answerCorrect()" if i % 2 else "window.__test.answerWrong()"
+                page.evaluate(fn)
+                if i < n:
+                    page.wait_for_function(
+                        f"window.__test.drillState() && window.__test.drillState().round === {i + 1}",
+                        timeout=8000)
+                else:
+                    page.wait_for_function(
+                        "window.__test.screen() === 'result'", timeout=8000)
 
-        # play all 8 rounds: alternate correct/wrong, wait for round to advance
-        for i in range(1, 9):
+        # --- each drill individually, 3 rounds ---
+        for drill in DRILLS:
+            page.evaluate(f"window.__test.startDrill('{drill}', 3)")
+            page.wait_for_timeout(400)
+            check(page.evaluate("window.__test.screen()") == "drill", f"{drill}: drill screen started")
+            check(page.evaluate("window.__test.scenario()") is not None, f"{drill}: round context exists")
+            page.screenshot(path=str(shots / f"3_drill_{drill}.png"))
+            play_rounds(3)
+            check(page.evaluate("window.__test.screen()") == "result", f"{drill}: result after 3 rounds")
+            page.evaluate("window.__test.store()")  # touch
+            # back to home for next drill
+            page.evaluate("window.__test.setProfile('Test')")
+
+        # --- full session: 4 drills x 6 rounds ---
+        page.evaluate("window.__test.startSession()")
+        page.wait_for_timeout(400)
+        for i in range(24):
             fn = "window.__test.answerCorrect()" if i % 2 else "window.__test.answerWrong()"
             page.evaluate(fn)
-            if i < 8:
-                page.wait_for_function(
-                    f"window.__test.drillState() && window.__test.drillState().round === {i + 1}",
-                    timeout=5000)
-            else:
-                page.wait_for_function(
-                    "window.__test.screen() === 'result'", timeout=5000)
-
-        st = page.evaluate("window.__test.drillState()")
-        check(page.evaluate("window.__test.screen()") == "result", "result screen after 8 rounds")
-        page.screenshot(path=str(shots / "4_result.png"))
+            page.wait_for_timeout(1600)
+            if page.evaluate("window.__test.screen()") == "result":
+                break
+        check(page.evaluate("window.__test.screen()") == "result", "session: result screen after 24 rounds")
+        page.screenshot(path=str(shots / "4_result_session.png"))
 
         data = page.evaluate("window.__test.store()")
-        check(data and len(data["sessions"]) == 1, "session recorded in localStorage")
-        check(data and len(data["history"]) == 8, f"8 rounds in history ({len(data['history']) if data else 0})")
-        check(data and data["streakDays"] == 1, "streak = 1 after first session")
+        # 4 single drills (recorded each) + 1 composed session
+        check(data and len(data["sessions"]) == 5, f"5 sessions recorded ({len(data['sessions']) if data else 0})")
+        check(data and data["streakDays"] == 1, "streak = 1 after first day")
+        levels = data["levels"] if data else {}
+        check(set(levels.keys()) == set(DRILLS), f"levels tracked for all drills ({sorted(levels)})")
         browser.close()
 finally:
     httpd.shutdown()

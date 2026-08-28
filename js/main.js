@@ -1,11 +1,13 @@
 // App shell: screen router (name entry / home / drill / result) + test hooks.
 import { T } from './i18n.js';
 import { store } from './store.js';
-import { runDecisionDrill } from './drills/decision.js';
+import { runDrill } from './drills/runner.js';
+import { runSession, DRILLS, DRILLS_BY_ID } from './engine/session.js';
 
 const app = document.getElementById('app');
 let currentScreen = 'boot';
 let drillHandle = null;
+let lastAction = null; // for "Nog een keer"
 
 function el(html) {
   const d = document.createElement('div');
@@ -40,24 +42,40 @@ function showHome() {
   currentScreen = 'home';
   const name = store.profile.name;
   const streak = store.streak;
-  const level = store.getLevel('decision');
+  const badges = DRILLS.map(d =>
+    `<div class="badge">${d.title}: ${T.level(store.getLevel(d.id))}</div>`).join('');
   const s = el(`
     <div class="screen">
       <h1>⚽ ${T.appTitle}</h1>
       <div class="card">
         <h2 style="color:var(--ink)">${T.welcomeBack(name)}</h2>
         ${streak > 0 ? `<div class="badge">🔥 ${T.streak(streak)}</div>` : ''}
-        <div class="badge">⭐ ${T.level(level)}</div>
+        <div class="badge">🏅 ${T.sessionsCount(store.totalSessions)}</div>
         <button data-start>${T.start}</button>
+        <p style="color:var(--ink);opacity:.7">${T.chooseDrill}</p>
+        <div class="drill-picker">
+          ${DRILLS.map(d => `<button class="secondary" data-drill="${d.id}">${d.title}</button>`).join('')}
+        </div>
+        <div class="levels">${badges}</div>
       </div>
     </div>`);
-  s.querySelector('[data-start]').addEventListener('click', showDrill);
+  s.querySelector('[data-start]').addEventListener('click', startSession);
+  s.querySelectorAll('[data-drill]').forEach(b =>
+    b.addEventListener('click', () => startDrill(b.dataset.drill)));
   app.replaceChildren(s);
 }
 
-function showDrill() {
+function startSession() {
+  lastAction = startSession;
   currentScreen = 'drill';
-  drillHandle = runDecisionDrill(app, showResult);
+  drillHandle = null;
+  runSession(app, showResult, (h) => { drillHandle = h; });
+}
+
+function startDrill(id) {
+  lastAction = () => startDrill(id);
+  currentScreen = 'drill';
+  drillHandle = runDrill(app, DRILLS_BY_ID[id], showResult);
 }
 
 function showResult(summary) {
@@ -71,13 +89,13 @@ function showResult(summary) {
         <div class="stars">${'⭐'.repeat(summary.stars)}</div>
         <h2 style="color:var(--ink)">${T.wellDone(name)}</h2>
         <div class="badge">${T.points(summary.points)}</div>
-        <div>${summary.correct} / ${summary.rounds} ✓ · ${T.level(summary.levelAfter)}</div>
+        <div>${summary.correct} / ${summary.rounds} ✓${summary.levelAfter ? ' · ' + T.level(summary.levelAfter) : ''}</div>
         <p>${T.restDay}</p>
         <button data-again class="secondary">${T.playAgain}</button>
         <button data-home>${T.backHome}</button>
       </div>
     </div>`);
-  s.querySelector('[data-again]').addEventListener('click', showDrill);
+  s.querySelector('[data-again]').addEventListener('click', () => (lastAction ?? showHome)());
   s.querySelector('[data-home]').addEventListener('click', showHome);
   app.replaceChildren(s);
 }
@@ -89,8 +107,14 @@ window.__test = {
     name = (name ?? '').trim();
     if (name) { store.setProfile(name); showHome(); }
   },
-  startDrill: () => showDrill(),
-  scenario: () => drillHandle?.scenario ?? null,
+  startDrill: (id = 'decision', rounds) => {
+    lastAction = () => startDrill(id);
+    currentScreen = 'drill';
+    drillHandle = runDrill(app, DRILLS_BY_ID[id], showResult,
+      rounds ? { rounds } : undefined);
+  },
+  startSession: () => startSession(),
+  scenario: () => drillHandle?.ctx ?? null,
   answerCorrect: () => drillHandle?.answerCorrect(),
   answerWrong: () => drillHandle?.answerWrong(),
   drillState: () => drillHandle ? {

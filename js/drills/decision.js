@@ -1,16 +1,10 @@
 // "Kies de beste pas" — frozen attack scenario, tap the most open teammate.
 import { T } from '../i18n.js';
-import { Pitch, TEAM_RED, TEAM_BLUE } from '../render/pitch.js';
-import { decisionParams, adjustLevel } from '../engine/difficulty.js';
-import { roundPoints, stars } from '../engine/scoring.js';
-import { store } from '../store.js';
-
-const DRILL_ID = 'decision';
-const ROUNDS = 8;
+import { TEAM_RED, TEAM_BLUE } from '../render/pitch.js';
+import { decisionParams } from '../engine/difficulty.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
-
-function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
 // Build a scenario with a unique best option (openness gap >= margin).
 function makeScenario(params) {
@@ -58,120 +52,26 @@ function makeScenario(params) {
   };
 }
 
-export function runDecisionDrill(app, onDone) {
-  const level = store.getLevel(DRILL_ID);
-  const params = decisionParams(level);
+export const decisionSpec = {
+  id: 'decision',
+  title: T.drillDecision,
+  intro: T.drillDecisionIntro,
+  rounds: 8,
+  paramsFor: decisionParams,
 
-  const screen = document.createElement('div');
-  screen.className = 'screen';
-  screen.innerHTML = `
-    <div class="hud">
-      <span>${T.drillDecision} · ${T.level(level)}</span>
-      <span data-round></span>
-      <span data-points>${T.points(0)}</span>
-    </div>
-    <div class="timerbar"><div data-timer style="width:100%"></div></div>
-    <div class="pitch-wrap"><canvas></canvas></div>
-    <div class="feedback" data-feedback>${T.drillDecisionIntro}</div>
-  `;
-  app.replaceChildren(screen);
+  startRound(api) {
+    const scenario = makeScenario(api.params);
+    api.pitch.draw(scenario);
+    api.startTimer(api.params.timeLimitMs);
+    return scenario;
+  },
 
-  const canvas = screen.querySelector('canvas');
-  const pitch = new Pitch(canvas);
-  const roundEl = screen.querySelector('[data-round]');
-  const pointsEl = screen.querySelector('[data-points]');
-  const timerEl = screen.querySelector('[data-timer]');
-  const feedbackEl = screen.querySelector('[data-feedback]');
+  onTap(ctx, api, idx) {
+    if (!ctx.optionIndices.includes(idx)) return null;
+    return { correct: idx === ctx.correctIndex };
+  },
 
-  const state = {
-    round: 0, points: 0, correct: 0,
-    results: [],       // { correct, fast }
-    scenario: null,
-    accepting: false,
-    roundStart: 0,
-    timerId: null,
-  };
-
-  function setFeedback(msg, cls) {
-    feedbackEl.textContent = msg;
-    feedbackEl.className = 'feedback' + (cls ? ' ' + cls : '');
-  }
-
-  function startRound() {
-    state.round++;
-    state.scenario = makeScenario(params);
-    state.accepting = true;
-    state.roundStart = performance.now();
-    roundEl.textContent = T.round(state.round, ROUNDS);
-    pitch.draw(state.scenario);
-    setFeedback(T.drillDecisionIntro);
-
-    const t0 = state.roundStart;
-    clearInterval(state.timerId);
-    state.timerId = setInterval(() => {
-      const left = 1 - (performance.now() - t0) / params.timeLimitMs;
-      timerEl.style.width = Math.max(0, left * 100) + '%';
-      if (left <= 0) endRound(-1);
-    }, 100);
-  }
-
-  function endRound(chosenIndex) {
-    if (!state.accepting) return;
-    state.accepting = false;
-    clearInterval(state.timerId);
-
-    const rtMs = performance.now() - state.roundStart;
-    const correct = chosenIndex === state.scenario.correctIndex;
-    const fast = correct && rtMs < params.timeLimitMs * 0.6;
-    state.results.push({ correct, fast });
-    if (correct) {
-      state.correct++;
-      state.points += roundPoints(true, rtMs, params.timeLimitMs);
-    }
-    store.recordRound(DRILL_ID, level, correct, Math.round(rtMs));
-    pointsEl.textContent = T.points(state.points);
-
-    const msg = chosenIndex === -1 ? T.tooSlow : (correct ? T.correct : T.wrong);
-    setFeedback(msg, correct ? 'good' : 'bad');
-    pitch.draw({ ...state.scenario, highlight: state.scenario.correctIndex });
-
-    setTimeout(() => {
-      if (state.round >= ROUNDS) finish();
-      else startRound();
-    }, 1400);
-  }
-
-  function finish() {
-    pitch.onTap = null;
-    const newLevel = adjustLevel(level, state.results);
-    store.setLevel(DRILL_ID, newLevel);
-    store.recordSession(state.points, ROUNDS, state.correct);
-    onDone({
-      drillId: DRILL_ID,
-      points: state.points,
-      correct: state.correct,
-      rounds: ROUNDS,
-      stars: stars(state.correct, ROUNDS),
-      levelBefore: level,
-      levelAfter: newLevel,
-    });
-  }
-
-  pitch.resize();
-  pitch.onTap = (idx) => {
-    if (!state.accepting) return;
-    if (state.scenario.optionIndices.includes(idx)) endRound(idx);
-  };
-  startRound();
-
-  // test hooks
-  return {
-    get state() { return state; },
-    get scenario() { return state.scenario; },
-    answerCorrect() { endRound(state.scenario.correctIndex); },
-    answerWrong() {
-      const wrong = state.scenario.optionIndices.find(i => i !== state.scenario.correctIndex);
-      endRound(wrong);
-    },
-  };
-}
+  reveal(ctx, api) {
+    api.pitch.draw({ ...ctx, highlight: ctx.correctIndex });
+  },
+};

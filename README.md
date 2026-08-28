@@ -24,8 +24,13 @@ python test/smoketest.py   # needs playwright + chromium in %LOCALAPPDATA%\ms-pl
 ## Structure
 
 - `js/render/pitch.js` — canvas top-down pitch renderer (shared by drills)
-- `js/drills/` — one module per drill (currently: `decision.js` "Kies de beste pas")
-- `js/engine/` — difficulty adaptation (levels 1–10) and scoring
+- `js/render/anim.js` — run-animation tween helper
+- `js/drills/runner.js` — shared drill loop (HUD, timer, scoring, level adapt)
+- `js/drills/` — one spec per drill: `decision.js` (Kies de beste pas),
+  `scanning.js` (Kijk om je heen), `anticipation.js` (Voorspel de pas),
+  `memory.js` (Onthoud de posities)
+- `js/engine/` — difficulty params (levels 1–10), scoring, session composer
+  (one session = 4 drill blocks × 6 rounds, ~10 min)
 - `js/store.js` — localStorage persistence (profile, levels, history, streaks)
 - `js/i18n.js` — all UI strings (Dutch)
 
