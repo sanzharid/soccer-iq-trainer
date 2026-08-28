@@ -62,4 +62,7 @@ export const store = {
   get streak() { return state.streakDays; },
   get totalSessions() { return state.sessions.length; },
   recentHistory(n = 50) { return state.history.slice(-n); },
+
+  get soundOn() { return state.soundOn !== false; },   // default on
+  setSoundOn(v) { state.soundOn = !!v; save(); },
 };

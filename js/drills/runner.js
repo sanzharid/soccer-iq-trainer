@@ -19,6 +19,7 @@ import { Pitch } from '../render/pitch.js';
 import { adjustLevel } from '../engine/difficulty.js';
 import { roundPoints, stars } from '../engine/scoring.js';
 import { store } from '../store.js';
+import { sound } from '../sound.js';
 
 export function runDrill(app, spec, onDone, options = {}) {
   const level = store.getLevel(spec.id);
@@ -80,6 +81,7 @@ export function runDrill(app, spec, onDone, options = {}) {
 
     const msg = result.msg ?? (correct ? T.correct : T.wrong);
     setFeedback(msg, correct ? 'good' : 'bad');
+    if (correct) sound.good(); else sound.bad();
     if (spec.reveal && state.ctx) spec.reveal(state.ctx, api);
 
     setTimeout(() => {
@@ -144,9 +146,16 @@ export function runDrill(app, spec, onDone, options = {}) {
   startRound();
 
   return {
+    get id() { return spec.id; },
     get state() { return state; },
     get ctx() { return state.ctx; },
-    answerCorrect: () => submit({ correct: true }),
-    answerWrong: () => submit({ correct: false }),
+    answerCorrect: () => {
+      if (!state.ctx || state.ctx.accepting === false) return; // same gate as real taps
+      submit({ correct: true });
+    },
+    answerWrong: () => {
+      if (!state.ctx || state.ctx.accepting === false) return;
+      submit({ correct: false });
+    },
   };
 }

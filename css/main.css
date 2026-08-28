@@ -18,6 +18,8 @@ html, body {
   color: var(--ink);
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  touch-action: manipulation;  /* no double-tap zoom on iPad */
+  overscroll-behavior: none;
 }
 
 #app {
@@ -157,3 +159,9 @@ canvas { display: block; width: 100%; }
   justify-content: center;
 }
 .levels .badge { font-size: 13px; padding: 5px 12px; }
+
+.sound-toggle {
+  font-size: 22px;
+  padding: 8px 16px;
+  border-radius: 999px;
+}

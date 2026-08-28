@@ -1,10 +1,13 @@
 """Headless smoke test for Voetbal IQ: serve locally, play every drill and a
 full session via window.__test hooks, check console errors, save screenshots.
 
+Note: answer hooks are gated like real taps — the test waits for each round's
+answer phase (drillState().accepting) before answering.
+
 Run: python test/smoketest.py   (playwright + chromium required)
 Exit code 0 = pass.
 """
-import pathlib, sys, threading, functools, http.server, socketserver, glob, os
+import pathlib, sys, threading, functools, http.server, socketserver, glob, os, time
 
 here = pathlib.Path(__file__).parent
 root = here.parent
@@ -50,13 +53,30 @@ try:
         check(page.evaluate("window.__test.screen()") == "name", "first run shows name screen")
         page.screenshot(path=str(shots / "1_name.png"))
 
+        # PWA basics
+        manifest_ok = page.evaluate(
+            "fetch('manifest.webmanifest').then(r => r.ok && r.json()).then(m => m.name === 'Voetbal IQ')")
+        check(manifest_ok, "manifest served and valid")
+        sw_ok = page.evaluate(
+            "navigator.serviceWorker ? navigator.serviceWorker.ready.then(r => !!r.active) : false")
+        check(sw_ok, "service worker registered and active")
+
         page.evaluate("window.__test.setProfile('Test')")
         check(page.evaluate("window.__test.screen()") == "home", "home after profile set")
         page.screenshot(path=str(shots / "2_home.png"))
 
+        def wait_accepting(round_no, timeout=20000):
+            page.wait_for_function(
+                "window.__test.drillState() && "
+                f"window.__test.drillState().round === {round_no} && "
+                "window.__test.drillState().accepting",
+                timeout=timeout)
+
         def play_rounds(n):
-            """Answer n rounds alternating correct/wrong, waiting for advance."""
+            """Answer n rounds alternating correct/wrong, waiting for each
+            round's answer phase first."""
             for i in range(1, n + 1):
+                wait_accepting(i)
                 fn = "window.__test.answerCorrect()" if i % 2 else "window.__test.answerWrong()"
                 page.evaluate(fn)
                 if i < n:
@@ -76,20 +96,25 @@ try:
             page.screenshot(path=str(shots / f"3_drill_{drill}.png"))
             play_rounds(3)
             check(page.evaluate("window.__test.screen()") == "result", f"{drill}: result after 3 rounds")
-            page.evaluate("window.__test.store()")  # touch
-            # back to home for next drill
-            page.evaluate("window.__test.setProfile('Test')")
+            page.evaluate("window.__test.setProfile('Test')")  # back home
 
-        # --- full session: 4 drills x 6 rounds ---
+        # --- full session: 4 drills x 6 rounds (round counter resets per drill) ---
         page.evaluate("window.__test.startSession()")
         page.wait_for_timeout(400)
-        for i in range(24):
-            fn = "window.__test.answerCorrect()" if i % 2 else "window.__test.answerWrong()"
-            page.evaluate(fn)
-            page.wait_for_timeout(1600)
+        answered = set()
+        deadline = time.time() + 240
+        while time.time() < deadline:
             if page.evaluate("window.__test.screen()") == "result":
                 break
-        check(page.evaluate("window.__test.screen()") == "result", "session: result screen after 24 rounds")
+            st = page.evaluate("window.__test.drillState()")
+            if st and st["accepting"] and (st["drill"], st["round"]) not in answered:
+                answered.add((st["drill"], st["round"]))
+                fn = "window.__test.answerCorrect()" if len(answered) % 2 else "window.__test.answerWrong()"
+                page.evaluate(fn)
+            page.wait_for_timeout(300)
+        check(page.evaluate("window.__test.screen()") == "result",
+              f"session: result screen ({len(answered)} rounds answered)")
+        check(len(answered) == 24, f"session: all 24 rounds answered ({len(answered)})")
         page.screenshot(path=str(shots / "4_result_session.png"))
 
         data = page.evaluate("window.__test.store()")

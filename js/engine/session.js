@@ -7,6 +7,7 @@ import { anticipationSpec } from '../drills/anticipation.js';
 import { memorySpec } from '../drills/memory.js';
 import { stars } from '../engine/scoring.js';
 import { store } from '../store.js';
+import { sound } from '../sound.js';
 
 export const DRILLS = [decisionSpec, scanningSpec, anticipationSpec, memorySpec];
 export const DRILLS_BY_ID = Object.fromEntries(DRILLS.map(d => [d.id, d]));
@@ -14,6 +15,7 @@ export const DRILLS_BY_ID = Object.fromEntries(DRILLS.map(d => [d.id, d]));
 const SESSION_ROUNDS = 6;
 
 export function runSession(app, onDone, onDrillStart) {
+  sound.whistle();
   const queue = [...DRILLS];
   const totals = { points: 0, correct: 0, rounds: 0 };
 

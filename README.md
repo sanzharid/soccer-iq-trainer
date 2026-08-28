@@ -3,6 +3,10 @@
 Frontend-only soccer-intelligence trainer for kids (Dutch, ages ~8+), inspired by
 soccer.intelligym.com. No backend, no sign-in — progress lives in localStorage.
 
+PWA: installable to the iPad home screen (Add to Home Screen), works offline
+via a cache-first service worker. Sound effects (WebAudio) can be toggled on
+the home screen.
+
 ## Run locally
 
 Any static file server from the repo root, e.g.:
@@ -32,7 +36,11 @@ python test/smoketest.py   # needs playwright + chromium in %LOCALAPPDATA%\ms-pl
 - `js/engine/` — difficulty params (levels 1–10), scoring, session composer
   (one session = 4 drill blocks × 6 rounds, ~10 min)
 - `js/store.js` — localStorage persistence (profile, levels, history, streaks)
+- `js/sound.js` — WebAudio sound effects (toggle on home screen)
 - `js/i18n.js` — all UI strings (Dutch)
+- `sw.js` + `manifest.webmanifest` + `icons/` — PWA (offline, installable);
+  bump the CACHE name in `sw.js` when assets change
+- `test/make_icons.py` — regenerates the PWA icons via headless chromium
 
 ## Deploy
 

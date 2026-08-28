@@ -3,6 +3,7 @@ import { T } from './i18n.js';
 import { store } from './store.js';
 import { runDrill } from './drills/runner.js';
 import { runSession, DRILLS, DRILLS_BY_ID } from './engine/session.js';
+import { sound } from './sound.js';
 
 const app = document.getElementById('app');
 let currentScreen = 'boot';
@@ -57,11 +58,18 @@ function showHome() {
           ${DRILLS.map(d => `<button class="secondary" data-drill="${d.id}">${d.title}</button>`).join('')}
         </div>
         <div class="levels">${badges}</div>
+        <button data-sound class="sound-toggle">${store.soundOn ? '🔊' : '🔇'}</button>
       </div>
     </div>`);
   s.querySelector('[data-start]').addEventListener('click', startSession);
   s.querySelectorAll('[data-drill]').forEach(b =>
     b.addEventListener('click', () => startDrill(b.dataset.drill)));
+  const soundBtn = s.querySelector('[data-sound]');
+  soundBtn.addEventListener('click', () => {
+    const on = sound.toggle();
+    soundBtn.textContent = on ? '🔊' : '🔇';
+    if (on) sound.tick();
+  });
   app.replaceChildren(s);
 }
 
@@ -118,9 +126,11 @@ window.__test = {
   answerCorrect: () => drillHandle?.answerCorrect(),
   answerWrong: () => drillHandle?.answerWrong(),
   drillState: () => drillHandle ? {
+    drill: drillHandle.id,
     round: drillHandle.state.round,
     points: drillHandle.state.points,
     correct: drillHandle.state.correct,
+    accepting: !!drillHandle.ctx && drillHandle.ctx.accepting !== false,
   } : null,
   store: () => JSON.parse(localStorage.getItem('voetbal-iq-v1')),
 };
