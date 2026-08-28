@@ -93,6 +93,16 @@ try:
             page.wait_for_timeout(400)
             check(page.evaluate("window.__test.screen()") == "drill", f"{drill}: drill screen started")
             check(page.evaluate("window.__test.scenario()") is not None, f"{drill}: round context exists")
+            if drill == "scanning":
+                import math
+                sc = page.evaluate("window.__test.scenario()")
+                reds = [p for p in sc["players"] if p["team"] == "red"]
+                blues = [p for p in sc["players"] if p["team"] == "blue"]
+                free = sc["players"][sc["freeIndex"]]
+                dist = lambda a, b: math.hypot(a["x"] - b["x"], a["y"] - b["y"])
+                marked = all(min(dist(r, b) for b in blues) < 0.13 for r in reds if r is not free)
+                free_clear = min(dist(free, b) for b in blues) > 0.20
+                check(marked and free_clear, "scanning: exactly one unmarked red (unambiguous)")
             page.screenshot(path=str(shots / f"3_drill_{drill}.png"))
             play_rounds(3)
             check(page.evaluate("window.__test.screen()") == "result", f"{drill}: result after 3 rounds")
