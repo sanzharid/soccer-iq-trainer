@@ -34,6 +34,35 @@ const infoOverlay = el(`
 document.body.appendChild(infoOverlay);
 infoOverlay.querySelector('[data-info-close]').addEventListener('click', () => { infoOverlay.hidden = true; });
 infoOverlay.addEventListener('click', (e) => { if (e.target === infoOverlay) infoOverlay.hidden = true; });
+
+// Mobile zoom lockdown: block pinch zoom and double-tap zoom so the pitch
+// never escapes the app frame.
+let lastTouch = { t: 0, x: 0, y: 0 };
+function allowTouch(el) {
+  // Let the scrolling info card and form inputs behave normally.
+  return el.closest('.info-card') || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';
+}
+document.addEventListener('touchstart', (e) => {
+  if (allowTouch(e.target)) return;
+  if (e.touches.length > 1) {
+    e.preventDefault();                 // pinch zoom
+  } else {
+    const t = e.touches[0];
+    const now = Date.now();
+    const dt = now - lastTouch.t;
+    const dx = Math.abs(t.clientX - lastTouch.x);
+    const dy = Math.abs(t.clientY - lastTouch.y);
+    if (dt < 350 && dx < 40 && dy < 40) {
+      e.preventDefault();               // double-tap zoom
+    }
+    lastTouch = { t: now, x: t.clientX, y: t.clientY };
+  }
+}, { passive: false, capture: true });
+// legacy iOS pinch
+window.addEventListener('gesturestart', (e) => e.preventDefault());
+window.addEventListener('gesturechange', (e) => e.preventDefault());
+window.addEventListener('gestureend', (e) => e.preventDefault());
+
 const INFO_BTN = `<button data-info class="info-btn">${T.infoBtn}</button>`;
 function wireInfo(s) {
   s.querySelectorAll('[data-info]').forEach(b =>

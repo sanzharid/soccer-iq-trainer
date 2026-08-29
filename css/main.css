@@ -18,8 +18,13 @@ html, body {
   color: var(--ink);
   -webkit-tap-highlight-color: transparent;
   user-select: none;
-  touch-action: manipulation;  /* no double-tap zoom on iPad */
+  touch-action: manipulation;  /* no double-tap zoom on UI chrome */
   overscroll-behavior: none;
+  overflow: hidden;            /* prevent page scroll/zoom escape */
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 #app {
@@ -129,9 +134,9 @@ button.secondary { background: var(--blue); box-shadow: 0 4px 0 #12569a; }
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 8px 24px rgba(0,0,0,.4);
-  touch-action: none;
+  touch-action: none;  /* browser handles NO touch gestures on the canvas */
 }
-canvas { display: block; width: 100%; }
+canvas { display: block; width: 100%; touch-action: none; }
 
 .feedback {
   min-height: 48px;
